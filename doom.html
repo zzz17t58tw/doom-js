@@ -115,7 +115,7 @@ const MAP_H = map.length;
 let enemies = [];
 const enemyTypes = {
   tall: { name: 'TALL ALIEN', health: 150, speed: 0.8, damage: 30, color: '#4a4', range: 1.5, attackCooldown: 1.2, size: 0.5, type: 'melee_tank' },
-  fireball: { name: 'FIREBALL ALIEN', health: 50, speed: 1.0, damage: 20, color: '#f80', range: 10, attackCooldown: 2.0, size: 0.35, type: 'ranged' },
+  fireball: { name: 'FIREBALL ALIEN', health: 50, speed: 0.5, damage: 20, color: '#f80', range: 10, attackCooldown: 2.0, size: 0.35, type: 'ranged' },
   swift: { name: 'SWIFT ALIEN', health: 25, speed: 3.5, damage: 12, color: '#a4f', range: 1.2, attackCooldown: 0.5, size: 0.25, type: 'melee_fast' }
 };
 
@@ -406,7 +406,11 @@ function updateEnemies(dt) {
     if (e.dead) { e.deathTimer -= dt; continue; }
     const dx = player.x-e.x, dy = player.y-e.y, dist = Math.sqrt(dx*dx+dy*dy);
     if (e.hitFlash > 0) e.hitFlash -= dt * 5;
-    const detRange = e.range > 2 ? 10 : 5;
+    // Detection range: tall has widest, fireball medium, swift shortest
+    let detRange;
+    if (e.type === 'melee_tank') detRange = 15;
+    else if (e.type === 'ranged') detRange = 12;
+    else detRange = 8;
     if (dist < detRange && canSeePlayer(e.x, e.y, player.x, player.y)) {
       e.state = 'chase';
     } else if (e.state === 'chase' && dist > detRange + 3) {
