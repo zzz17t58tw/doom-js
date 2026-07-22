@@ -392,12 +392,19 @@ function updateEnemies(dt) {
       }
       e.attackTimer -= dt;
       if (e.attackTimer <= 0 && dist < e.range + 1) {
-        let dmg = e.damage;
-        if (player.armor > 0) { const ab = Math.min(player.armor, dmg*0.5); player.armor -= ab; dmg -= ab; }
-        player.health -= dmg;
+        if (e.range > 2) {
+          // Ranged enemy: fire projectile
+          const a = Math.atan2(dy, dx);
+          projectiles.push({ x:e.x, y:e.y, vx:Math.cos(a)*6, vy:Math.sin(a)*6, damage:e.damage, life:3, color:e.color, fromEnemy:true });
+        } else {
+          // Melee enemy: instant damage
+          let dmg = e.damage;
+          if (player.armor > 0) { const ab = Math.min(player.armor, dmg*0.5); player.armor -= ab; dmg -= ab; }
+          player.health -= dmg;
+          playSound('hurt'); showDamage();
+          if (player.health <= 0) { gameState = 'lose'; showOverlay('YOU DIED', 'Refresh to restart'); }
+        }
         e.attackTimer = e.attackCooldown;
-        playSound('hurt'); showDamage();
-        if (player.health <= 0) { gameState = 'lose'; showOverlay('YOU DIED', 'Refresh to restart'); }
       }
     }
   }
@@ -409,19 +416,46 @@ function updateProjectiles(dt) {
     p.x += p.vx*dt; p.y += p.vy*dt; p.life -= dt;
     if (map[Math.floor(p.y)][Math.floor(p.x)] > 0 || p.life <= 0) {
       createExplosion(p.x, p.y, p.damage); playSound('explosion');
-      for (const e of enemies) {
-        if (e.dead) continue;
-        const d = Math.sqrt((e.x-p.x)**2+(e.y-p.y)**2);
-        if (d < 3) damageEnemy(e, p.damage*(1-d/3));
+      if (p.fromEnemy) {
+        // Enemy projectile hit wall: damage player if close
+        const d = Math.sqrt((p.x-player.x)**2+(p.y-player.y)**2);
+        if (d < 3) {
+          let dmg = p.damage;
+          if (player.armor > 0) { const ab = Math.min(player.armor, dmg*0.5); player.armor -= ab; dmg -= ab; }
+          player.health -= dmg;
+          playSound('hurt'); showDamage();
+          if (player.health <= 0) { gameState = 'lose'; showOverlay('YOU DIED', 'Refresh to restart'); }
+        }
+      } else {
+        // Player projectile hit wall: damage nearby enemies
+        for (const e of enemies) {
+          if (e.dead) continue;
+          const d = Math.sqrt((e.x-p.x)**2+(e.y-p.y)**2);
+          if (d < 3) damageEnemy(e, p.damage*(1-d/3));
+        }
       }
       projectiles.splice(i, 1); continue;
     }
-    let hit = false;
-    for (const e of enemies) {
-      if (e.dead) continue;
-      if (Math.sqrt((e.x-p.x)**2+(e.y-p.y)**2) < e.size) { damageEnemy(e, p.damage); hit = true; break; }
+    if (p.fromEnemy) {
+      // Enemy projectile: check if hits player
+      const d = Math.sqrt((p.x-player.x)**2+(p.y-player.y)**2);
+      if (d < 0.4) {
+        let dmg = p.damage;
+        if (player.armor > 0) { const ab = Math.min(player.armor, dmg*0.5); player.armor -= ab; dmg -= ab; }
+        player.health -= dmg;
+        playSound('hurt'); showDamage();
+        if (player.health <= 0) { gameState = 'lose'; showOverlay('YOU DIED', 'Refresh to restart'); }
+        projectiles.splice(i, 1); continue;
+      }
+    } else {
+      // Player projectile: check if hits enemies
+      let hit = false;
+      for (const e of enemies) {
+        if (e.dead) continue;
+        if (Math.sqrt((e.x-p.x)**2+(e.y-p.y)**2) < e.size) { damageEnemy(e, p.damage); hit = true; break; }
+      }
+      if (hit) projectiles.splice(i, 1);
     }
-    if (hit) projectiles.splice(i, 1);
   }
 }
 
