@@ -114,9 +114,9 @@ const MAP_H = map.length;
 
 let enemies = [];
 const enemyTypes = {
-  imp: { name: 'IMP', health: 30, speed: 1.5, damage: 10, color: '#a52', range: 12, attackCooldown: 1.5, size: 0.3 },
-  demon: { name: 'DEMON', health: 60, speed: 2.5, damage: 20, color: '#f44', range: 1.5, attackCooldown: 0.8, size: 0.4 },
-  cacodemon: { name: 'CACODEMON', health: 80, speed: 1.0, damage: 15, color: '#f0f', range: 10, attackCooldown: 2.0, size: 0.35 }
+  tall: { name: 'TALL ALIEN', health: 150, speed: 0.8, damage: 30, color: '#4a4', range: 1.5, attackCooldown: 1.2, size: 0.5, type: 'melee_tank' },
+  fireball: { name: 'FIREBALL ALIEN', health: 50, speed: 1.0, damage: 20, color: '#f80', range: 10, attackCooldown: 2.0, size: 0.35, type: 'ranged' },
+  swift: { name: 'SWIFT ALIEN', health: 25, speed: 3.5, damage: 12, color: '#a4f', range: 1.2, attackCooldown: 0.5, size: 0.25, type: 'melee_fast' }
 };
 
 let projectiles = [];
@@ -249,7 +249,7 @@ function renderSprites() {
   for (const e of enemies) {
     if (e.dead) continue;
     const dx = e.x - player.x, dy = e.y - player.y;
-    sprites.push({ ...e, dist: Math.sqrt(dx*dx+dy*dy), angle: Math.atan2(dy,dx) - player.angle, type: 'enemy' });
+    sprites.push({ ...e, dist: Math.sqrt(dx*dx+dy*dy), angle: Math.atan2(dy,dx) - player.angle, spriteType: 'enemy' });
   }
   for (const p of projectiles) {
     const dx = p.x - player.x, dy = p.y - player.y;
@@ -269,16 +269,49 @@ function renderSprites() {
     let vis = false;
     for (let c = sc; c <= ec; c++) { if (perpDist < zBuffer[c]) { vis = true; break; } }
     if (!vis) continue;
-    if (sp.type === 'enemy') {
+    if (sp.spriteType === 'enemy') {
       const shade = Math.max(0.3, 1 - perpDist / MAX_DEPTH);
       const bob = Math.sin(Date.now() * 0.003) * 3;
       ctx.globalAlpha = shade;
       ctx.fillStyle = sp.hitFlash > 0 ? '#fff' : sp.color;
-      ctx.fillRect(sx + w*0.2, sy + h*0.3 + bob, w*0.6, h*0.5);
-      ctx.beginPath(); ctx.arc(sx + w/2, sy + h*0.2 + bob, w*0.2, 0, Math.PI*2); ctx.fill();
-      ctx.fillStyle = '#ff0';
-      ctx.fillRect(sx + w*0.35, sy + h*0.15 + bob, w*0.1, h*0.05);
-      ctx.fillRect(sx + w*0.55, sy + h*0.15 + bob, w*0.1, h*0.05);
+      // Draw different alien shapes based on type
+      if (sp.type === 'melee_tank') {
+        // Tall alien: tall body + big head + horns
+        ctx.fillRect(sx + w*0.15, sy + h*0.25 + bob, w*0.7, h*0.6);
+        ctx.beginPath(); ctx.arc(sx + w/2, sy + h*0.18 + bob, w*0.25, 0, Math.PI*2); ctx.fill();
+        // Horns
+        ctx.fillRect(sx + w*0.25, sy + h*0.05 + bob, w*0.08, h*0.15);
+        ctx.fillRect(sx + w*0.67, sy + h*0.05 + bob, w*0.08, h*0.15);
+        // Eyes
+        ctx.fillStyle = '#f00';
+        ctx.fillRect(sx + w*0.35, sy + h*0.14 + bob, w*0.12, h*0.06);
+        ctx.fillRect(sx + w*0.53, sy + h*0.14 + bob, w*0.12, h*0.06);
+      } else if (sp.type === 'ranged') {
+        // Fireball alien: floating orb + mouth
+        ctx.beginPath(); ctx.arc(sx + w/2, sy + h*0.35 + bob, w*0.3, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = '#ff0';
+        ctx.beginPath(); ctx.arc(sx + w/2, sy + h*0.35 + bob, w*0.15, 0, Math.PI*2); ctx.fill();
+        // Mouth
+        ctx.fillStyle = '#f00';
+        ctx.beginPath(); ctx.arc(sx + w/2, sy + h*0.42 + bob, w*0.1, 0, Math.PI*2); ctx.fill();
+        // Floating effect
+        ctx.fillStyle = sp.color; ctx.globalAlpha = shade * 0.3;
+        ctx.beginPath(); ctx.arc(sx + w/2, sy + h*0.35 + bob, w*0.35, 0, Math.PI*2); ctx.fill();
+        ctx.globalAlpha = shade;
+      } else if (sp.type === 'melee_fast') {
+        // Swift alien: small, thin, multiple legs
+        ctx.fillRect(sx + w*0.3, sy + h*0.2 + bob, w*0.4, h*0.4);
+        ctx.beginPath(); ctx.arc(sx + w/2, sy + h*0.15 + bob, w*0.18, 0, Math.PI*2); ctx.fill();
+        // Legs
+        ctx.fillRect(sx + w*0.2, sy + h*0.55 + bob, w*0.08, h*0.15);
+        ctx.fillRect(sx + w*0.72, sy + h*0.55 + bob, w*0.08, h*0.15);
+        ctx.fillRect(sx + w*0.35, sy + h*0.58 + bob, w*0.06, h*0.12);
+        ctx.fillRect(sx + w*0.59, sy + h*0.58 + bob, w*0.06, h*0.12);
+        // Eyes
+        ctx.fillStyle = '#ff0';
+        ctx.fillRect(sx + w*0.38, sy + h*0.12 + bob, w*0.08, h*0.04);
+        ctx.fillRect(sx + w*0.54, sy + h*0.12 + bob, w*0.08, h*0.04);
+      }
       if (sp.health < sp.maxHealth) {
         ctx.fillStyle = '#300'; ctx.fillRect(sx+w*0.1, sy-8+bob, w*0.8, 4);
         ctx.fillStyle = '#f00'; ctx.fillRect(sx+w*0.1, sy-8+bob, w*0.8*(sp.health/sp.maxHealth), 4);
@@ -348,18 +381,23 @@ function canSeePlayer(ex, ey, px, py) {
 
 function spawnEnemies() {
   enemies = [];
-  const impPos = [{x:8.5,y:8.5},{x:12.5,y:5.5},{x:5.5,y:12.5},{x:15.5,y:15.5},{x:10.5,y:10.5},{x:7.5,y:15.5},{x:16.5,y:3.5},{x:3.5,y:16.5}];
-  for (const p of impPos) {
+  // Tall aliens (melee tank) - spread around map
+  const tallPos = [{x:8.5,y:8.5},{x:15.5,y:15.5},{x:10.5,y:10.5}];
+  for (const p of tallPos) {
     if (map[Math.floor(p.y)][Math.floor(p.x)] === 0)
-      enemies.push({ ...enemyTypes.imp, x:p.x, y:p.y, maxHealth:enemyTypes.imp.health, state:'idle', attackTimer:0, hitFlash:0, dead:false, deathTimer:0 });
+      enemies.push({ ...enemyTypes.tall, x:p.x, y:p.y, maxHealth:enemyTypes.tall.health, state:'idle', attackTimer:0, hitFlash:0, dead:false, deathTimer:0 });
   }
-  for (const p of [{x:10.5,y:3.5},{x:3.5,y:10.5},{x:16.5,y:10.5}]) {
+  // Fireball aliens (ranged) - corners
+  const firePos = [{x:12.5,y:5.5},{x:5.5,y:12.5},{x:16.5,y:3.5},{x:3.5,y:16.5}];
+  for (const p of firePos) {
     if (map[Math.floor(p.y)][Math.floor(p.x)] === 0)
-      enemies.push({ ...enemyTypes.demon, x:p.x, y:p.y, maxHealth:enemyTypes.demon.health, state:'idle', attackTimer:0, hitFlash:0, dead:false, deathTimer:0 });
+      enemies.push({ ...enemyTypes.fireball, x:p.x, y:p.y, maxHealth:enemyTypes.fireball.health, state:'idle', attackTimer:0, hitFlash:0, dead:false, deathTimer:0 });
   }
-  for (const p of [{x:10.5,y:16.5},{x:17.5,y:17.5}]) {
+  // Swift aliens (melee fast) - close to player start
+  const swiftPos = [{x:10.5,y:3.5},{x:3.5,y:10.5},{x:16.5,y:10.5},{x:17.5,y:17.5}];
+  for (const p of swiftPos) {
     if (map[Math.floor(p.y)][Math.floor(p.x)] === 0)
-      enemies.push({ ...enemyTypes.cacodemon, x:p.x, y:p.y, maxHealth:enemyTypes.cacodemon.health, state:'idle', attackTimer:0, hitFlash:0, dead:false, deathTimer:0 });
+      enemies.push({ ...enemyTypes.swift, x:p.x, y:p.y, maxHealth:enemyTypes.swift.health, state:'idle', attackTimer:0, hitFlash:0, dead:false, deathTimer:0 });
   }
 }
 
